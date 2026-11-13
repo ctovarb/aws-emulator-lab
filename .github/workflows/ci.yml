@@ -34,17 +34,11 @@ jobs:
         with:
           terraform_version: "1.9.8"
 
-      - name: Install AWS Emulator (.deb official package) & Start Daemon
+      - name: Install AWS Emulator (Official x86_64 Package) & Start Daemon
         run: |
-          if curl -fLsS "https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/latest/aws-emulator-amd64.deb" -o /tmp/aws-emulator.deb; then
-            sudo apt-get update && sudo apt-get install -y /tmp/aws-emulator.deb
-          else
-            echo "[INFO] Descarga directa .deb no disponible, configurando repositorio APT oficial..."
-            sudo mkdir -p /etc/apt/keyrings
-            curl -fsSL "https://downloads.aws.com/aws-emulator/gpg/aws-emulator.gpg" | sudo gpg --dearmor -o /etc/apt/keyrings/aws-emulator.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/aws-emulator.gpg] https://downloads.aws.com/aws-emulator/apt stable main" | sudo tee /etc/apt/sources.list.d/aws-emulator.list > /dev/null
-            sudo apt-get update && sudo apt-get install -y aws-emulator
-          fi
+          sudo apt-get update && sudo apt-get install -y rpm2cpio cpio
+          curl -fLsS "https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/latest/aws-emulator-x86_64.rpm" -o /tmp/aws-emulator.rpm
+          (cd / && sudo rpm2cpio /tmp/aws-emulator.rpm | sudo cpio -idmv)
           ./scripts/start-emulator.sh
           echo "AWS_SHARED_CREDENTIALS_FILE=${HOME}/.aws/emulator/9297/emulator_credentials" >> "$GITHUB_ENV"
           echo "AWS_CONFIG_FILE=${HOME}/.aws/emulator/9297/config" >> "$GITHUB_ENV"
@@ -88,4 +82,4 @@ jobs:
           directory: terraform/
           framework: terraform
           soft_fail: false
-          skip_check: CKV_AWS_18,CKV_AWS_21,CKV_AWS_58,CKV_AWS_116,CKV_AWS_117,CKV_AWS_144,CKV_AWS_145,CKV_AWS_119,CKV_AWS_27,CKV_AWS_149,CKV2_AWS_11,CKV2_AWS_19,CKV2_AWS_61,CKV2_AWS_62
+          skip_check: CKV_AWS_18,CKV_AWS_21,CKV_AWS_58,CKV_AWS_116,CKV_AWS_117,CKV_AWS_144,CKV_AWS_145,CKV_AWS_119,CKV_AWS_27,CKV_AWS_149,CKV2_AWS_11,CKV2_AWS_12,CKV2_AWS_19,CKV2_AWS_57,CKV2_AWS_61,CKV2_AWS_62

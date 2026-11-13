@@ -1,0 +1,26 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Python / Go / App
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+
+# Logs y artefactos del emulador
+*.log
+*.pid
+ca-bundle-copy.pem

@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: order-processor-sa
+  namespace: default
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/order-processor-local-app-role
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-processor
+  namespace: default
+  labels:
+    app: order-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-processor
+  template:
+    metadata:
+      labels:
+        app: order-processor
+    spec:
+      serviceAccountName: order-processor-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        # Sidecar TCP forwarder para que boto3 conecte a https://localhost:9297 y pase la validación SAN del cert TLS
+        - name: emulator-tunnel
+          image: alpine/socat:1.8.0.1
+          args:
+            - "TCP-LISTEN:9297,bind=127.0.0.1,fork,reuseaddr"
+            - "TCP:__HOST_GATEWAY_IP__:9297"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+        - name: api
+          image: localhost/order-processor:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AWS_ENDPOINT_URL
+              value: "https://localhost:9297"
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: "/etc/aws-emulator/emulator_credentials"
+            - name: AWS_CA_BUNDLE
+              value: "/etc/aws-emulator/ca.pem"
+            - name: REQUESTS_CA_BUNDLE
+              value: "/etc/aws-emulator/ca.pem"
+            - name: SSL_CERT_FILE
+              value: "/etc/aws-emulator/ca.pem"
+            - name: AWS_DISABLE_HOST_PREFIX_INJECTION
+              value: "true"
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
+          volumeMounts:
+            - name: emulator-creds
+              mountPath: /etc/aws-emulator
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: emulator-creds
+          secret:
+            secretName: aws-emulator-runtime
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-processor-svc
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: order-processor
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30080
